@@ -1,57 +1,54 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<title>nghiepdeptrai</title>
-<style>
-body { font-family: Arial; background:#f4f4f4; padding:40px; }
-.container { max-width:800px; margin:auto; background:white; padding:25px; border-radius:12px; }
-textarea { width:100%; height:250px; }
-button { background:#4CAF50; color:white; padding:12px; border:none; border-radius:8px; width:100%; font-size:16px; }
-</style>
+    <meta charset="UTF-8">
+    <title>TTS Web Pro</title>
 </head>
-<body>
+<body style="font-family: Arial; background:#f4f4f4; text-align:center;">
 
-<div class="container">
-<h2>🎙 nghiepdeptrai</h2>
+<h2>🎙 TTS Web Pro</h2>
 
-<form id="ttsForm">
-<textarea name="text" placeholder="Viết truyện... dùng Nam: và Nữ: để đổi giọng"></textarea>
+<form id="form" enctype="multipart/form-data">
+<textarea name="text" rows="10" cols="60" placeholder="Nhập truyện ở đây"></textarea>
 <br><br>
 
-<label>Chọn thể loại:</label>
-<select name="genre">
-<option value="nguoc">💔 Ngược tâm</option>
-<option value="tongtai">💞 Tổng tài</option>
+<select name="voice">
+<option value="vi-VN-HoaiMyNeural">Hoài My (Nữ)</option>
+<option value="vi-VN-NamMinhNeural">Nam Minh (Nam)</option>
 </select>
-
 <br><br>
-<button type="submit">🚀 Tạo Audio</button>
+
+<label>Tốc độ (-50 đến 50):</label><br>
+<input type="number" name="rate" value="0"><br><br>
+
+<label>Cao độ (-50 đến 50):</label><br>
+<input type="number" name="pitch" value="0"><br><br>
+
+<label>Chèn nhạc nền (.mp3):</label><br>
+<input type="file" name="music" accept=".mp3"><br><br>
+
+<button type="submit">🚀 Tạo MP3</button>
 </form>
 
 <br>
-<audio id="player" controls style="width:100%; display:none;"></audio>
-
-</div>
+<audio id="player" controls></audio>
 
 <script>
-document.getElementById("ttsForm").addEventListener("submit", async function(e){
+document.getElementById("form").onsubmit = async function(e){
     e.preventDefault();
-    const formData = new FormData(this);
 
-    const response = await fetch("/generate", {
+    let formData = new FormData(this);
+
+    let res = await fetch("/generate", {
         method: "POST",
         body: formData
     });
 
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-
-    const player = document.getElementById("player");
-    player.src = url;
-    player.style.display = "block";
-});
+    let data = await res.json();
+    document.getElementById("player").src = data.file;
+};
 </script>
 
 </body>
 </html>
+
