@@ -1,4 +1,4 @@
-Flask==3.0.2
-gTTS==2.5.1
-pydub==0.25.1
-gunicorn==21.2.0
+flask
+edge-tts
+pydub
+gunicorn
