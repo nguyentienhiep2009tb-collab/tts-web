@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Tool của tôi</title>
+    <style>
+        body {
+            font-family: Arial;
+            text-align: center;
+            margin-top: 100px;
+            background: #f2f2f2;
+        }
+        input {
+            padding: 10px;
+            width: 300px;
+        }
+        button {
+            padding: 10px 20px;
+            background: black;
+            color: white;
+            border: none;
+        }
+        .result {
+            margin-top: 20px;
+            font-size: 20px;
+            color: green;
+        }
+    </style>
+</head>
+<body>
+    <h1>Tool test Flask</h1>
+    <form method="POST">
+        <input type="text" name="text" placeholder="Nhập gì đó...">
+        <button type="submit">Chạy</button>
+    </form>
+
+    <div class="result">
+        {{ result }}
+    </div>
+</body>
+</html>
