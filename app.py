@@ -14,7 +14,19 @@ os.makedirs(TEMP_FOLDER, exist_ok=True)
 
 # ===============================
 # Chia nhỏ text cho truyện dài
-# ===============================
+# ===============================from flask import Flask, request, jsonify, send_file, render_template
+import edge_tts
+import asyncio
+import os
+import uuid
+import threading
+import time
+
+app = Flask(__name__)
+
+TEMP_FOLDER = "temp"
+os.makedirs(TEMP_FOLDER, exist_ok=True)
+
 def split_text(text, max_length=2500):
     parts = []
     while len(text) > max_length:
@@ -45,37 +57,31 @@ def home():
 def generate():
     text = request.form.get("text")
     voice = request.form.get("voice")
-    speed = float(request.form.get("speed", 1.0))
 
     filename = f"{uuid.uuid4()}.mp3"
     filepath = os.path.join(TEMP_FOLDER, filename)
 
     parts = split_text(text)
-    combined = AudioSegment.empty()
 
-    for part in parts:
-        temp_name = f"{uuid.uuid4()}.mp3"
-        temp_path = os.path.join(TEMP_FOLDER, temp_name)
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
 
-        asyncio.run(generate_tts(part, voice, temp_path))
-        segment = AudioSegment.from_mp3(temp_path)
-        combined += segment
+    for i, part in enumerate(parts):
+        temp_path = os.path.join(TEMP_FOLDER, f"{uuid.uuid4()}.mp3")
+        loop.run_until_complete(generate_tts(part, voice, temp_path))
 
-        os.remove(temp_path)
-
-    # chỉnh tốc độ
-    combined = combined._spawn(
-        combined.raw_data,
-        overrides={"frame_rate": int(combined.frame_rate * speed)}
-    ).set_frame_rate(combined.frame_rate)
-
-    combined.export(filepath, format="mp3")
+        if i == 0:
+            os.rename(temp_path, filepath)
+        else:
+            with open(filepath, "ab") as main_file:
+                with open(temp_path, "rb") as part_file:
+                    main_file.write(part_file.read())
+            os.remove(temp_path)
 
     delete_later(filepath, 300)
 
     return jsonify({
-        "file": f"/download/{filename}",
-        "duration": len(combined) / 1000
+        "file": f"/download/{filename}"
     })
 
 @app.route("/download/<filename>")
@@ -85,4 +91,3 @@ def download(filename):
 
 if __name__ == "__main__":
     app.run()
-
