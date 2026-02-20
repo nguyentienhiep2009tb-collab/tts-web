@@ -1,122 +1,102 @@
+from flask import Flask, render_template, request, jsonify, send_file
+import edge_tts
+import asyncio
 import os
 import uuid
-import asyncio
-from fastapi import FastAPI, Form
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
+import threading
+import time
 from pydub import AudioSegment
-import edge_tts
 
-app = FastAPI()
+app = Flask(__name__)
 
-OUTPUT_DIR = "outputs"
-MUSIC_DIR = "music"
+TEMP_FOLDER = "temp"
+os.makedirs(TEMP_FOLDER, exist_ok=True)
 
-os.makedirs(OUTPUT_DIR, exist_ok=True)
-os.makedirs(MUSIC_DIR, exist_ok=True)
+def delete_later(path, delay=300):
+    def remove():
+        time.sleep(delay)
+        if os.path.exists(path):
+            os.remove(path)
+    threading.Thread(target=remove).start()
 
-# ===============================
-# PRESET THEO THỂ LOẠI
-# ===============================
-GENRE_CONFIG = {
-    "nguoc": {
-        "music": "music/nguoc.mp3",
-        "rate": "-5%",
-        "pitch": "-3Hz"
-    },
-    "tongtai": {
-        "music": "music/tongtai.mp3",
-        "rate": "+3%",
-        "pitch": "+0Hz"
-    }
-}
+def split_text(text, max_length=4000):
+    parts = []
+    while len(text) > max_length:
+        split_point = text.rfind(".", 0, max_length)
+        if split_point == -1:
+            split_point = max_length
+        parts.append(text[:split_point+1])
+        text = text[split_point+1:]
+    parts.append(text)
+    return parts
 
-# ===============================
-# TTS ĐỔI GIỌNG THEO TAG
-# ===============================
-async def generate_tts_dialogue(text, output_file, genre):
+async def generate_tts(text, voice, rate, pitch, filename):
+    communicate = edge_tts.Communicate(
+        text=text,
+        voice=voice,
+        rate=f"{rate:+d}%",
+        pitch=f"{pitch:+d}Hz"
+    )
+    await communicate.save(filename)
 
-    lines = text.split("\n")
-    combined = AudioSegment.empty()
+@app.route("/")
+def home():
+    return render_template("index.html")
 
-    config = GENRE_CONFIG.get(genre, GENRE_CONFIG["nguoc"])
-    rate = config["rate"]
-    pitch = config["pitch"]
+@app.route("/generate", methods=["POST"])
+def generate():
+    text = request.form["text"]
+    voice = request.form["voice"]
+    rate = int(request.form["rate"])
+    pitch = int(request.form["pitch"])
+    music_file = request.files.get("music")
 
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
+    filename = f"{uuid.uuid4()}.mp3"
+    filepath = os.path.join(TEMP_FOLDER, filename)
 
-        if line.startswith("Nam:"):
-            voice = "vi-VN-NamMinhNeural"
-            content = line.replace("Nam:", "").strip()
-        elif line.startswith("Nữ:"):
-            voice = "vi-VN-HoaiMyNeural"
-            content = line.replace("Nữ:", "").strip()
-        else:
-            voice = "vi-VN-HoaiMyNeural"
-            content = line
+    parts = split_text(text)
 
-        temp_file = f"{uuid.uuid4()}.mp3"
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
 
-        communicate = edge_tts.Communicate(
-            text=content,
-            voice=voice,
-            rate=rate,
-            pitch=pitch
-        )
+    tts_files = []
+    for part in parts:
+        part_file = os.path.join(TEMP_FOLDER, f"{uuid.uuid4()}.mp3")
+        loop.run_until_complete(generate_tts(part, voice, rate, pitch, part_file))
+        tts_files.append(part_file)
 
-        await communicate.save(temp_file)
+    combined_voice = AudioSegment.empty()
+    for file in tts_files:
+        combined_voice += AudioSegment.from_mp3(file)
+        os.remove(file)
 
-        audio = AudioSegment.from_file(temp_file)
-        combined += audio
-        os.remove(temp_file)
+    if music_file:
+        music_path = os.path.join(TEMP_FOLDER, f"{uuid.uuid4()}_music.mp3")
+        music_file.save(music_path)
 
-    combined.export(output_file, format="mp3")
+        music = AudioSegment.from_mp3(music_path)
+        music = music - 15
 
+        if len(music) < len(combined_voice):
+            repeat_times = int(len(combined_voice) / len(music)) + 1
+            music = music * repeat_times
 
-# ===============================
-# GHÉP NHẠC NỀN
-# ===============================
-def add_background_music(voice_file, music_file, output_file):
+        music = music[:len(combined_voice)]
+        final_audio = combined_voice.overlay(music)
 
-    voice = AudioSegment.from_file(voice_file)
-    music = AudioSegment.from_file(music_file)
+        os.remove(music_path)
+    else:
+        final_audio = combined_voice
 
-    if len(music) < len(voice):
-        times = len(voice) // len(music) + 1
-        music = music * times
+    final_audio.export(filepath, format="mp3")
 
-    music = music[:len(voice)]
-    music = music - 20
+    delete_later(filepath)
 
-    music = music.fade_in(3000).fade_out(5000)
+    return jsonify({"file": f"/download/{filename}"})
 
-    final = voice.overlay(music)
-    final.export(output_file, format="mp3")
+@app.route("/download/<filename>")
+def download(filename):
+    return send_file(os.path.join(TEMP_FOLDER, filename), as_attachment=False)
 
-
-# ===============================
-# ROUTE
-# ===============================
-@app.post("/generate")
-async def generate(
-    text: str = Form(""),
-    genre: str = Form("nguoc")
-):
-
-    file_id = str(uuid.uuid4())
-    voice_path = os.path.join(OUTPUT_DIR, f"{file_id}_voice.mp3")
-    final_path = os.path.join(OUTPUT_DIR, f"{file_id}_final.mp3")
-
-    await generate_tts_dialogue(text, voice_path, genre)
-
-    music_path = GENRE_CONFIG[genre]["music"]
-
-    if os.path.exists(music_path):
-        add_background_music(voice_path, music_path, final_path)
-        os.remove(voice_path)
-        return FileResponse(final_path, media_type="audio/mpeg")
-
-    return FileResponse(voice_path, media_type="audio/mpeg")
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)
