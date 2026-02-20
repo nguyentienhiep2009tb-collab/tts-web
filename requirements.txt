@@ -1,5 +1,4 @@
-fastapi
-uvicorn
+flask
 edge-tts
 pydub
-python-multipart
+ffmpeg-python
