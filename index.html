@@ -1,121 +1,56 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html>
 <head>
 <meta charset="UTF-8">
-<title>NGHIEP DEP TRAI</title>
+<title>nghiepdeptrai</title>
 <style>
-body{
-    font-family: Arial;
-    background:#f4f6f9;
-    padding:30px;
-}
-.container{
-    max-width:850px;
-    margin:auto;
-    background:white;
-    padding:30px;
-    border-radius:15px;
-    box-shadow:0 0 20px rgba(0,0,0,0.1);
-}
-textarea{
-    width:100%;
-    height:220px;
-    padding:12px;
-    font-size:16px;
-    border-radius:8px;
-}
-select,input[type=range]{
-    width:100%;
-    margin-top:10px;
-}
-label{
-    font-weight:bold;
-}
-button{
-    margin-top:25px;
-    padding:14px;
-    width:100%;
-    background:#4CAF50;
-    color:white;
-    border:none;
-    border-radius:10px;
-    font-size:18px;
-    cursor:pointer;
-}
-button:hover{
-    background:#45a049;
-}
-.value{
-    text-align:right;
-    font-size:14px;
-    color:#555;
-}
-audio{
-    margin-top:25px;
-    width:100%;
-}
+body { font-family: Arial; background:#f4f4f4; padding:40px; }
+.container { max-width:800px; margin:auto; background:white; padding:25px; border-radius:12px; }
+textarea { width:100%; height:250px; }
+button { background:#4CAF50; color:white; padding:12px; border:none; border-radius:8px; width:100%; font-size:16px; }
 </style>
 </head>
 <body>
 
 <div class="container">
-<h2>🎙 TTS Web Pro Ultra</h2>
+<h2>🎙 nghiepdeptrai</h2>
 
-<label>Nhập văn bản:</label>
-<textarea id="text"></textarea>
+<form id="ttsForm">
+<textarea name="text" placeholder="Viết truyện... dùng Nam: và Nữ: để đổi giọng"></textarea>
+<br><br>
 
-<label>Chọn giọng:</label>
-<select id="voice">
-<option value="vi-VN-HoaiMyNeural">Hoài My (Nữ)</option>
-<option value="vi-VN-NamMinhNeural">Nam Minh (Nam)</option>
+<label>Chọn thể loại:</label>
+<select name="genre">
+<option value="nguoc">💔 Ngược tâm</option>
+<option value="tongtai">💞 Tổng tài</option>
 </select>
 
-<label>Tốc độ:</label>
-<input type="range" id="rate" min="-50" max="50" value="0">
-<div class="value">Giá trị: <span id="rateVal">0%</span></div>
+<br><br>
+<button type="submit">🚀 Tạo Audio</button>
+</form>
 
-<label>Cao độ:</label>
-<input type="range" id="pitch" min="-50" max="50" value="0">
-<div class="value">Giá trị: <span id="pitchVal">0Hz</span></div>
-
-<button onclick="generate()">🚀 Tạo MP3</button>
-
-<audio id="player" controls></audio>
+<br>
+<audio id="player" controls style="width:100%; display:none;"></audio>
 
 </div>
 
 <script>
-let rateSlider=document.getElementById("rate");
-let pitchSlider=document.getElementById("pitch");
+document.getElementById("ttsForm").addEventListener("submit", async function(e){
+    e.preventDefault();
+    const formData = new FormData(this);
 
-rateSlider.oninput=()=> {
-    document.getElementById("rateVal").innerText=rateSlider.value+"%";
-}
-pitchSlider.oninput=()=> {
-    document.getElementById("pitchVal").innerText=pitchSlider.value+"Hz";
-}
-
-function generate(){
-    let text=document.getElementById("text").value;
-    let voice=document.getElementById("voice").value;
-    let rate=rateSlider.value;
-    let pitch=pitchSlider.value;
-
-    fetch("/generate",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-            text:text,
-            voice:voice,
-            rate:rate,
-            pitch:pitch
-        })
-    })
-    .then(res=>res.json())
-    .then(data=>{
-        document.getElementById("player").src=data.file;
+    const response = await fetch("/generate", {
+        method: "POST",
+        body: formData
     });
-}
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+
+    const player = document.getElementById("player");
+    player.src = url;
+    player.style.display = "block";
+});
 </script>
 
 </body>
