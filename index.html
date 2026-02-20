@@ -1,40 +1,111 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Tool của tôi</title>
+    <title>TTS Truyện Audio Pro</title>
     <style>
         body {
+            background: #111;
+            color: white;
             font-family: Arial;
             text-align: center;
-            margin-top: 100px;
-            background: #f2f2f2;
         }
-        input {
-            padding: 10px;
-            width: 300px;
+        textarea {
+            width: 80%;
+            height: 150px;
+            background: #222;
+            color: white;
         }
-        button {
-            padding: 10px 20px;
-            background: black;
+        input, select, button {
+            padding: 8px;
+            margin: 5px;
+            background: #333;
             color: white;
             border: none;
         }
-        .result {
+        button {
+            background: #00c853;
+            cursor: pointer;
+        }
+        audio {
+            width: 80%;
             margin-top: 20px;
-            font-size: 20px;
-            color: green;
+        }
+        input[type=range] {
+            width: 80%;
         }
     </style>
 </head>
 <body>
-    <h1>Tool test Flask</h1>
-    <form method="POST">
-        <input type="text" name="text" placeholder="Nhập gì đó...">
-        <button type="submit">Chạy</button>
-    </form>
 
-    <div class="result">
-        {{ result }}
-    </div>
+<h2>🎧 TTS Truyện Audio Ultra</h2>
+
+<form id="ttsForm">
+    <textarea name="text" placeholder="Dán nội dung truyện vào đây..."></textarea><br>
+
+    <select name="voice">
+        <option value="vi-VN-HoaiMyNeural">Hoài My (Nữ)</option>
+        <option value="vi-VN-NamMinhNeural">Nam Minh (Nam)</option>
+    </select><br>
+
+    <label>Tốc độ (0.5 - 2.0)</label>
+    <input type="number" name="speed" value="1.0" step="0.1" min="0.5" max="2.0"><br>
+
+    <button type="submit">Tạo truyện & Preview</button>
+</form>
+
+<audio id="player" controls></audio>
+
+<br><br>
+
+<label>Bắt đầu nghe (giây)</label><br>
+<input type="range" id="startRange" value="0"><br>
+
+<label>Kết thúc nghe (giây)</label><br>
+<input type="range" id="endRange" value="0"><br>
+
+<script>
+const form = document.getElementById("ttsForm");
+const player = document.getElementById("player");
+const startRange = document.getElementById("startRange");
+const endRange = document.getElementById("endRange");
+
+form.onsubmit = async function(e){
+    e.preventDefault();
+    let formData = new FormData(this);
+
+    let res = await fetch("/generate", {
+        method: "POST",
+        body: formData
+    });
+
+    let data = await res.json();
+    player.src = data.file;
+
+    player.onloadedmetadata = function(){
+        startRange.max = player.duration;
+        endRange.max = player.duration;
+        endRange.value = player.duration;
+    }
+};
+
+startRange.oninput = function(){
+    player.currentTime = startRange.value;
+};
+
+endRange.oninput = function(){
+    if(player.currentTime > endRange.value){
+        player.currentTime = endRange.value;
+    }
+};
+
+player.ontimeupdate = function(){
+    if(player.currentTime >= endRange.value){
+        player.pause();
+    }
+};
+</script>
+
 </body>
+</html>
+
 </html>
