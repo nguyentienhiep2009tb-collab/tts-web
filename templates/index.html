@@ -1,1 +1,122 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>NGHIEP DEP TRAI</title>
+<style>
+body{
+    font-family: Arial;
+    background:#f4f6f9;
+    padding:30px;
+}
+.container{
+    max-width:850px;
+    margin:auto;
+    background:white;
+    padding:30px;
+    border-radius:15px;
+    box-shadow:0 0 20px rgba(0,0,0,0.1);
+}
+textarea{
+    width:100%;
+    height:220px;
+    padding:12px;
+    font-size:16px;
+    border-radius:8px;
+}
+select,input[type=range]{
+    width:100%;
+    margin-top:10px;
+}
+label{
+    font-weight:bold;
+}
+button{
+    margin-top:25px;
+    padding:14px;
+    width:100%;
+    background:#4CAF50;
+    color:white;
+    border:none;
+    border-radius:10px;
+    font-size:18px;
+    cursor:pointer;
+}
+button:hover{
+    background:#45a049;
+}
+.value{
+    text-align:right;
+    font-size:14px;
+    color:#555;
+}
+audio{
+    margin-top:25px;
+    width:100%;
+}
+</style>
+</head>
+<body>
 
+<div class="container">
+<h2>🎙 TTS Web Pro Ultra</h2>
+
+<label>Nhập văn bản:</label>
+<textarea id="text"></textarea>
+
+<label>Chọn giọng:</label>
+<select id="voice">
+<option value="vi-VN-HoaiMyNeural">Hoài My (Nữ)</option>
+<option value="vi-VN-NamMinhNeural">Nam Minh (Nam)</option>
+</select>
+
+<label>Tốc độ:</label>
+<input type="range" id="rate" min="-50" max="50" value="0">
+<div class="value">Giá trị: <span id="rateVal">0%</span></div>
+
+<label>Cao độ:</label>
+<input type="range" id="pitch" min="-50" max="50" value="0">
+<div class="value">Giá trị: <span id="pitchVal">0Hz</span></div>
+
+<button onclick="generate()">🚀 Tạo MP3</button>
+
+<audio id="player" controls></audio>
+
+</div>
+
+<script>
+let rateSlider=document.getElementById("rate");
+let pitchSlider=document.getElementById("pitch");
+
+rateSlider.oninput=()=> {
+    document.getElementById("rateVal").innerText=rateSlider.value+"%";
+}
+pitchSlider.oninput=()=> {
+    document.getElementById("pitchVal").innerText=pitchSlider.value+"Hz";
+}
+
+function generate(){
+    let text=document.getElementById("text").value;
+    let voice=document.getElementById("voice").value;
+    let rate=rateSlider.value;
+    let pitch=pitchSlider.value;
+
+    fetch("/generate",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+            text:text,
+            voice:voice,
+            rate:rate,
+            pitch:pitch
+        })
+    })
+    .then(res=>res.json())
+    .then(data=>{
+        document.getElementById("player").src=data.file;
+    });
+}
+</script>
+
+</body>
+</html>
