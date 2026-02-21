@@ -1,25 +1,24 @@
-import os
-import asyncio
 from flask import Flask, render_template, request, send_file
-import edge_tts
+import os
+from gtts import gTTS
 
 app = Flask(__name__)
 
-OUTPUT_FILE = "output.mp3"
-
-async def generate_tts(text):
-    communicate = edge_tts.Communicate(text, "vi-VN-HoaiMyNeural")
-    await communicate.save(OUTPUT_FILE)
-
-@app.route("/", methods=["GET", "POST"])
+@app.route('/')
 def index():
-    if request.method == "POST":
-        text = request.form.get("text")
-        if text:
-            asyncio.run(generate_tts(text))
-            return send_file(OUTPUT_FILE, as_attachment=True)
-    return render_template("index.html")
+    return render_template('index.html')
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+@app.route('/generate', methods=['POST'])
+def generate():
+    text = request.form['text']
+    voice = request.form['voice']
+
+    filename = "output.mp3"
+
+    tts = gTTS(text=text, lang='vi')
+    tts.save(filename)
+
+    return send_file(filename, as_attachment=True)
+
+if __name__ == '__main__':
+    app.run(host="0.0.0.0", port=10000)
