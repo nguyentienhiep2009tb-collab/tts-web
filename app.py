@@ -1,6 +1,5 @@
-from flask import Flask, render_template, request, send_file, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 import requests
-import io
 import os
 import tempfile
 import re
@@ -8,16 +7,17 @@ from pydub import AudioSegment
 
 app = Flask(__name__)
 
-# THAY KEY AZURE CỦA MÀY Ở ĐÂY (tạo Speech resource tier Free F0 trên Azure portal)
-AZURE_KEY = "your_azure_speech_key_here"
-AZURE_REGION = "southeastasia"  # Gần VN, latency thấp
+AZURE_KEY = os.environ.get('AZURE_KEY')
+if not AZURE_KEY:
+    raise ValueError("Thiếu AZURE_KEY trong environment variables!")
 
-CHUNK_SIZE = 8000  # Azure giới hạn ~10k chars/request, để an toàn
+AZURE_REGION = "southeastasia"
+
+CHUNK_SIZE = 8000
 
 def split_text(text, max_length=CHUNK_SIZE):
     chunks = []
     current = ""
-    # Chia theo câu để tự nhiên hơn
     sentences = re.split(r'(?<=[\.\!\?])\s+', text.strip())
     for sentence in sentences:
         if len(current) + len(sentence) + 1 <= max_length:
@@ -31,14 +31,10 @@ def split_text(text, max_length=CHUNK_SIZE):
     return chunks if chunks else [text]
 
 def generate_ssml(chunk, voice, rate_percent, pitch_percent):
-    # rate_percent: -50 đến +50 → chuyển thành rate multiplier (0.5 → 1.5x)
-    rate = 1.0 + (rate_percent / 100.0)
-    # pitch_percent: -50 đến +50 → % thay đổi
+    rate = max(0.5, min(2.0, 1.0 + (rate_percent / 100.0)))
     pitch = f"{pitch_percent:+.0f}%"
-
-    # Làm ngọt ngào hơn: thêm break 150-250ms giữa câu, pitch + mặc định 15% nếu 0
     if pitch_percent == 0:
-        pitch = "+15%"  # Na ná Ngọc Huyền (cao nhẹ, ngọt)
+        pitch = "+15%"
 
     ssml = f"""
     <speak version='1.0' xml:lang='vi-VN'>
@@ -63,14 +59,14 @@ def generate():
     pitch = float(request.form.get('pitch', 0))
 
     if not text:
-        return jsonify({"error": "Nhập văn bản đi mày!"}), 400
+        return jsonify({"error": "Nhập văn bản đi mày!"})
 
-    music_file = request.files.get('music')
     music_path = None
+    music_file = request.files.get('music')
     if music_file and music_file.filename.endswith('.mp3'):
-        music_temp = tempfile.NamedTemporaryFile(suffix='.mp3', delete=False)
-        music_file.save(music_temp.name)
-        music_path = music_temp.name
+        temp_music = tempfile.NamedTemporaryFile(suffix='.mp3', delete=False)
+        music_file.save(temp_music.name)
+        music_path = temp_music.name
 
     chunks = split_text(text)
     audio_segments = []
@@ -81,14 +77,13 @@ def generate():
         headers = {
             "Ocp-Apim-Subscription-Key": AZURE_KEY,
             "Content-Type": "application/ssml+xml",
-            "X-Microsoft-OutputFormat": "audio-16khz-128kbitrate-mono-mp3",
-            "User-Agent": "TTSWebPro"
+            "X-Microsoft-OutputFormat": "audio-16khz-128kbitrate-mono-mp3"
         }
         resp = requests.post(url, data=ssml, headers=headers)
         if resp.status_code != 200:
             if music_path:
                 os.unlink(music_path)
-            return jsonify({"error": f"Lỗi Azure: {resp.text}"}), 500
+            return jsonify({"error": f"Lỗi Azure: {resp.text[:200]}"})
 
         temp_mp3 = tempfile.NamedTemporaryFile(suffix='.mp3', delete=False)
         temp_mp3.write(resp.content)
@@ -96,41 +91,30 @@ def generate():
         audio_segments.append(AudioSegment.from_mp3(temp_mp3.name))
         os.unlink(temp_mp3.name)
 
-    # Ghép speech chunks
-    combined_speech = sum(audio_segments, AudioSegment.empty())
+    combined = sum(audio_segments, AudioSegment.empty())
 
-    final_audio = combined_speech
-
-    # Nếu có nhạc nền: overlay, giảm vol nhạc 60-70% để giọng rõ
     if music_path:
         try:
-            bg_music = AudioSegment.from_mp3(music_path)
-            # Loop nhạc nếu ngắn hơn speech
-            if len(bg_music) < len(combined_speech):
-                bg_music = bg_music * (len(combined_speech) // len(bg_music) + 1)
-            bg_music = bg_music[:len(combined_speech)]
-            # Giảm vol nhạc, fade in/out
-            bg_music = bg_music - 18  # Giảm ~70% vol
-            bg_music = bg_music.fade_in(3000).fade_out(4000)
-            final_audio = combined_speech.overlay(bg_music)
-        except Exception as e:
-            print("Lỗi nhạc nền:", e)
-        finally:
-            os.unlink(music_path)
+            bg = AudioSegment.from_mp3(music_path)
+            if len(bg) < len(combined):
+                bg = bg * ((len(combined) // len(bg)) + 1)
+            bg = bg[:len(combined)] - 18
+            bg = bg.fade_in(3000).fade_out(4000)
+            combined = combined.overlay(bg)
+        except:
+            pass
+        os.unlink(music_path)
 
-    # Lưu final
-    output_path = "output.mp3"
-    final_audio.export(output_path, format="mp3")
+    os.makedirs('static', exist_ok=True)
+    output_path = "static/output.mp3"
+    combined.export(output_path, format="mp3")
 
-    # Trả URL tạm (hoặc base64 nếu muốn, nhưng send_file ổn hơn)
-    # Để preview, tao trả file path tạm (trong production dùng static hoặc cloud)
-    return jsonify({"file": "/static/output.mp3"})  # Cần tạo route static hoặc dùng send_file
+    timestamp = str(os.path.getmtime(output_path))
+    return jsonify({"file": f"/static/output.mp3?t={timestamp}"})
 
-# Để preview: thêm route serve file (dev only, production dùng Render static)
 @app.route('/static/<path:filename>')
-def static_files(filename):
-    return send_file(filename)
+def serve_static(filename):
+    return send_from_directory('static', filename)
 
 if __name__ == '__main__':
-    os.makedirs('static', exist_ok=True)  # Nếu cần
-    app.run(host="0.0.0.0", port=10000, debug=True)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)), debug=True)
