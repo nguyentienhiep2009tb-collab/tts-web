@@ -2,63 +2,55 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>NGHIEP DEP TRAI</title>
+    <title>NGHIEP DEP TRAI - TTS Pro</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #f4f4f4; text-align: center; padding: 20px; }
+        body { font-family: Arial; background:#f4f4f4; text-align:center; padding: 20px; }
         h2 { color: #333; }
-        form { max-width: 700px; margin: auto; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        textarea { width: 100%; height: 200px; padding: 12px; font-size: 16px; border: 1px solid #ccc; border-radius: 8px; }
-        select, input[type="number"], input[type="file"] { width: 100%; padding: 10px; margin: 10px 0; font-size: 16px; border: 1px solid #ccc; border-radius: 8px; }
-        label { display: block; margin: 15px 0 5px; font-weight: bold; }
-        button { background: #28a745; color: white; border: none; padding: 15px; font-size: 18px; border-radius: 8px; cursor: pointer; width: 100%; }
-        button:hover { background: #218838; }
+        form { max-width: 700px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        textarea, select, input { width: 100%; margin: 10px 0; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 6px; }
+        button { background: #28a745; color: white; border: none; padding: 15px; font-size: 18px; cursor: pointer; width: 100%; border-radius: 6px; }
         audio { margin-top: 20px; width: 100%; }
     </style>
 </head>
 <body>
-    <h2>🎙 TTS Web Pro</h2>
-    <form id="form" enctype="multipart/form-data">
-        <textarea name="text" placeholder="Nhập truyện hoặc script ở đây... (dài bao nhiêu cũng ok, tự động chia)"></textarea><br><br>
-        
-        <select name="voice">
-            <option value="vi-VN-HoaiMyNeural">Hoài My (Nữ) - ngọt ngào</option>
-            <option value="vi-VN-NamMinhNeural">Nam Minh (Nam)</option>
-        </select><br><br>
-        
-        <label>Tốc độ (-50 chậm → +50 nhanh):</label>
-        <input type="number" name="rate" value="0" min="-50" max="50"><br><br>
-        
-        <label>Cao độ (-50 thấp → +50 cao, mặc định +15% ngọt):</label>
-        <input type="number" name="pitch" value="0" min="-50" max="50"><br><br>
-        
-        <label>Chèn nhạc nền (.mp3):</label>
-        <input type="file" name="music" accept=".mp3"><br><br>
-        
-        <button type="submit">🚀 Tạo MP3</button>
-    </form>
-    
-    <audio id="player" controls></audio>
+<h2>🎙 TTS Web Pro</h2>
+<form id="form" enctype="multipart/form-data">
+<textarea name="text" rows="10" placeholder="Nhập truyện hoặc script ở đây... (dài hàng trăm ngàn ký tự cũng ok, tự động xử lý)"></textarea>
+<br><br>
+<select name="voice">
+<option value="vi-VN-HoaiMyNeural">Hoài My (Nữ) - ngọt ngào</option>
+<option value="vi-VN-NamMinhNeural">Nam Minh (Nam)</option>
+</select>
+<br><br>
+<label>Tốc độ (-50 chậm → +50 nhanh):</label><br>
+<input type="number" name="rate" value="0" min="-50" max="50"><br><br>
+<label>Cao độ (-50 thấp → +50 cao, 0 = +15% ngọt):</label><br>
+<input type="number" name="pitch" value="0" min="-50" max="50"><br><br>
+<label>Chèn nhạc nền (.mp3):</label><br>
+<input type="file" name="music" accept=".mp3"><br><br>
+<button type="submit">🚀 Tạo MP3</button>
+</form>
+<br>
+<audio id="player" controls></audio>
 
-    <script>
-    document.getElementById("form").onsubmit = async function(e) {
-        e.preventDefault();
-        let formData = new FormData(this);
-        let res = await fetch("/generate", {
-            method: "POST",
-            body: formData
-        });
-        if (res.ok) {
-            let data = await res.json();
-            if (data.file) {
-                document.getElementById("player").src = data.file + '?t=' + new Date().getTime();  // Cache bust
-                document.getElementById("player").play();
-            } else if (data.error) {
-                alert("Lỗi: " + data.error);
-            }
-        } else {
-            alert("Lỗi server!");
-        }
-    };
-    </script>
+<script>
+document.getElementById("form").onsubmit = async function(e){
+    e.preventDefault();
+    let formData = new FormData(this);
+    let res = await fetch("/generate", {
+        method: "POST",
+        body: formData
+    });
+    let data = await res.json();
+    if (data.file) {
+        document.getElementById("player").src = data.file;
+        document.getElementById("player").play();
+    } else if (data.error) {
+        alert("Lỗi: " + data.error);
+    } else {
+        alert("Có lỗi không rõ!");
+    }
+};
+</script>
 </body>
 </html>
