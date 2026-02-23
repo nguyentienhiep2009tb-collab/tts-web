@@ -1,4 +1,4 @@
 flask
 requests
 pydub
-gunicorn  # cho Render chạy production
+gunicorn
