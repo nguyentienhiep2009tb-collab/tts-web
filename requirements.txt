@@ -1,4 +1,4 @@
 flask
-edge-tts
+requests
 pydub
-gunicorn
+gunicorn  # cho Render chạy production
